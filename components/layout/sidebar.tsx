@@ -18,19 +18,28 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+// Operations role navigation
+const operationsNavigation = [
+  { name: 'Fleet Summary', href: '/', icon: LayoutDashboard },
   { name: 'Fleet', href: '/fleet', icon: Bus },
   { name: 'Garages', href: '/garages', icon: Warehouse },
-  { name: 'Maintenance', href: '/maintenance', icon: Wrench },
+  { name: 'Reporting', href: '/reports', icon: BarChart3 },
+];
+
+// Maintenance role navigation
+const maintenanceNavigation = [
+  { name: 'Maintenance Summary', href: '/maintenance-summary', icon: LayoutDashboard },
+  { name: 'Work Orders', href: '/maintenance', icon: Wrench },
   { name: 'Components', href: '/components', icon: ClipboardList },
-  { name: 'Reports', href: '/reports', icon: BarChart3 },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, logout } = useUserStore();
+
+  // Get navigation based on role
+  const navigation = currentUser?.role === 'maintenance' ? maintenanceNavigation : operationsNavigation;
 
   const handleLogout = () => {
     logout();

@@ -112,8 +112,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-gray-500">Welcome to SpareHub Fleet Management</p>
+        <h1 className="text-3xl font-bold tracking-tight">Fleet Summary</h1>
+        <p className="text-gray-500">Overview of your fleet operations</p>
       </div>
 
       {/* Fleet Inventory Section */}

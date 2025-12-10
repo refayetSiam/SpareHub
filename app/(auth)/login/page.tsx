@@ -76,8 +76,8 @@ export default function LoginPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="operations">Operations Manager</SelectItem>
-                  <SelectItem value="maintenance">Maintenance Personnel</SelectItem>
+                  <SelectItem value="operations">Operations</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
                 </SelectContent>
               </Select>
             </div>
