@@ -108,7 +108,7 @@ export default function GaragesPage() {
                       Buses Being Worked On ({stats.maintenance})
                     </h4>
                     <div className="space-y-2">
-                      {garageBuses.filter(b => b.status === 'maintenance' || b.status === 'in_maintenance').slice(0, 5).map((bus) => (
+                      {garageBuses.filter(b => b.status === 'maintenance').slice(0, 5).map((bus) => (
                         <div key={bus.id} className="flex items-center justify-between text-sm bg-yellow-50 p-2 rounded">
                           <div className="flex items-center gap-2">
                             <Bus className="h-4 w-4 text-yellow-600" />
