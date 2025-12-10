@@ -405,45 +405,42 @@ export default function MaintenancePage() {
           setIsEditing(false);
         }
       }}>
-        <SheetContent className="w-[700px] sm:w-[800px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Work Order Details</SheetTitle>
-            <SheetDescription className="font-mono text-xs">
+        <SheetContent className="w-[1000px] sm:w-[1200px] max-w-[90vw] overflow-y-auto">
+          <SheetHeader className="pb-6">
+            <SheetTitle className="text-2xl">Work Order Details</SheetTitle>
+            <SheetDescription className="font-mono text-xs text-gray-400">
               {selectedWorkOrder?.id}
             </SheetDescription>
           </SheetHeader>
 
           {selectedWorkOrder && (
-            <div className="space-y-6 py-6">
+            <div className="space-y-8 py-4">
               {/* Header Info */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Title</label>
-                  <p className="text-base font-medium">{selectedWorkOrder.title}</p>
+              <div className="space-y-6">
+                <div className="pb-4 border-b">
+                  <label className="text-sm font-medium text-gray-500 block mb-2">Title</label>
+                  <p className="text-lg font-semibold">{selectedWorkOrder.title}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-6">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Vehicle</label>
-                    <Link href={`/fleet/${selectedWorkOrder.busId}`} className="block text-blue-600 hover:underline">
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Vehicle</label>
+                    <Link href={`/fleet/${selectedWorkOrder.busId}`} className="block text-blue-600 hover:underline text-base font-medium">
                       {LocalStorageService.getBus(selectedWorkOrder.busId)?.vehicleNumber || 'Unknown'}
                     </Link>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Status</label>
-                    <div className="mt-1">{getStatusBadge(selectedWorkOrder.status)}</div>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Status</label>
+                    <div>{getStatusBadge(selectedWorkOrder.status)}</div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Priority</label>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Priority</label>
                     {isEditing && selectedWorkOrder.status !== 'completed' ? (
                       <Select
                         value={editForm.priority || selectedWorkOrder.priority}
                         onValueChange={(value) => setEditForm({ ...editForm, priority: value as any })}
                       >
-                        <SelectTrigger className="w-full mt-1">
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -454,25 +451,25 @@ export default function MaintenancePage() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div className="mt-1">{getPriorityBadge(selectedWorkOrder.priority)}</div>
+                      <div>{getPriorityBadge(selectedWorkOrder.priority)}</div>
                     )}
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Created Date</label>
-                    <p className="text-sm">{new Date(selectedWorkOrder.createdDate).toLocaleDateString()}</p>
                   </div>
                 </div>
 
-                {selectedWorkOrder.status !== 'completed' && (
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-6">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Created Date</label>
+                    <p className="text-base">{new Date(selectedWorkOrder.createdDate).toLocaleDateString()}</p>
+                  </div>
+                  {selectedWorkOrder.status !== 'completed' && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Change Status</label>
+                      <label className="text-sm font-medium text-gray-500 block mb-2">Change Status</label>
                       {isEditing ? (
                         <Select
                           value={editForm.status || selectedWorkOrder.status}
                           onValueChange={(value) => setEditForm({ ...editForm, status: value as any })}
                         >
-                          <SelectTrigger className="w-full mt-1">
+                          <SelectTrigger className="w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -481,72 +478,72 @@ export default function MaintenancePage() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <p className="text-sm capitalize">{selectedWorkOrder.status.replace('_', ' ')}</p>
+                        <p className="text-base capitalize">{selectedWorkOrder.status.replace('_', ' ')}</p>
                       )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Description */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Description</label>
-                <p className="text-sm mt-1">{selectedWorkOrder.description}</p>
+              <div className="pb-6 border-b">
+                <label className="text-sm font-medium text-gray-500 block mb-3">Description</label>
+                <p className="text-base leading-relaxed">{selectedWorkOrder.description}</p>
               </div>
 
               {/* Components */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Components</label>
-                <div className="mt-2 space-y-1">
+              <div className="pb-6 border-b">
+                <label className="text-sm font-medium text-gray-500 block mb-3">Components</label>
+                <div className="grid grid-cols-2 gap-3">
                   {selectedWorkOrder.components.length > 0 ? (
                     selectedWorkOrder.components.map((comp) => {
                       const busComp = LocalStorageService.getBus(selectedWorkOrder.busId)?.components.find(c => c.type === comp);
                       return (
-                        <div key={comp} className="text-sm bg-gray-50 px-3 py-2 rounded">
-                          {getComponentDisplayName(comp)} {busComp && busComp.position !== 'N/A' && `(${busComp.position})`}
+                        <div key={comp} className="text-base bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+                          • {getComponentDisplayName(comp)} {busComp && busComp.position !== 'N/A' && `(${busComp.position})`}
                         </div>
                       );
                     })
                   ) : (
-                    <div className="text-sm text-gray-500">Additional maintenance item</div>
+                    <div className="text-base text-gray-500 col-span-2">Additional maintenance item</div>
                   )}
                 </div>
               </div>
 
               {/* Assigned Mechanic */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Assigned Mechanic</label>
-                {isEditing && selectedWorkOrder.status !== 'completed' ? (
-                  <Select
-                    value={editForm.assignedMechanic || 'unassigned'}
-                    onValueChange={(value) => setEditForm({ ...editForm, assignedMechanic: value === 'unassigned' ? '' : value })}
-                  >
-                    <SelectTrigger className="w-full mt-1">
-                      <SelectValue placeholder="Select mechanic" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {MECHANICS.map(mech => (
-                        <SelectItem key={mech.id} value={mech.name}>{mech.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm mt-1">{selectedWorkOrder.assignedMechanic || 'Unassigned'}</p>
-                )}
-              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm font-medium text-gray-500 block mb-3">Assigned Mechanic</label>
+                  {isEditing && selectedWorkOrder.status !== 'completed' ? (
+                    <Select
+                      value={editForm.assignedMechanic || 'unassigned'}
+                      onValueChange={(value) => setEditForm({ ...editForm, assignedMechanic: value === 'unassigned' ? '' : value })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select mechanic" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {MECHANICS.map(mech => (
+                          <SelectItem key={mech.id} value={mech.name}>{mech.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-base">{selectedWorkOrder.assignedMechanic || 'Unassigned'}</p>
+                  )}
+                </div>
 
-              {/* Scheduled Date */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Scheduled Date</label>
-                {isEditing && selectedWorkOrder.status !== 'completed' ? (
-                  <Input
-                    type="date"
-                    value={editForm.scheduledDate ? new Date(editForm.scheduledDate).toISOString().split('T')[0] : ''}
-                    onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
-                    className="mt-1"
-                  />
-                ) : (
+                {/* Scheduled Date */}
+                <div>
+                  <label className="text-sm font-medium text-gray-500 block mb-3">Scheduled Date</label>
+                  {isEditing && selectedWorkOrder.status !== 'completed' ? (
+                    <Input
+                      type="date"
+                      value={editForm.scheduledDate ? new Date(editForm.scheduledDate).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
+                    />
+                  ) : (
                   <p className="text-sm mt-1">
                     {selectedWorkOrder.scheduledDate ? new Date(selectedWorkOrder.scheduledDate).toLocaleDateString() : 'Not scheduled'}
                   </p>
