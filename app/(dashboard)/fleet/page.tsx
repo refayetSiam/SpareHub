@@ -94,9 +94,9 @@ export default function FleetPage() {
 
   const stats = {
     total: buses.length,
-    active: buses.filter(b => b.status === 'active' || b.status === 'operational').length,
-    maintenance: buses.filter(b => b.status === 'maintenance' || b.status === 'in_maintenance').length,
-    decommissioned: buses.filter(b => b.status === 'decommissioned' || b.status === 'out_of_service').length
+    active: buses.filter(b => b.status === 'active').length,
+    maintenance: buses.filter(b => b.status === 'maintenance').length,
+    decommissioned: buses.filter(b => b.status === 'decommissioned').length
   };
 
   return (
