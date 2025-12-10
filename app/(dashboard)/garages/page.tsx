@@ -27,9 +27,9 @@ export default function GaragesPage() {
     return {
       total: garageBuses.length,
       capacity: garage?.capacity || 0,
-      active: garageBuses.filter(b => b.status === 'active' || b.status === 'operational').length,
-      maintenance: garageBuses.filter(b => b.status === 'maintenance' || b.status === 'in_maintenance').length,
-      decommissioned: garageBuses.filter(b => b.status === 'decommissioned' || b.status === 'out_of_service').length,
+      active: garageBuses.filter(b => b.status === 'active').length,
+      maintenance: garageBuses.filter(b => b.status === 'maintenance').length,
+      decommissioned: garageBuses.filter(b => b.status === 'decommissioned').length,
       utilization: garage ? (garageBuses.length / garage.capacity) * 100 : 0
     };
   };
