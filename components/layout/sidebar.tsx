@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 
 // Operations role navigation
 const operationsNavigation = [
-  { name: 'Fleet Summary', href: '/', icon: LayoutDashboard },
+  { name: 'Fleet Summary', href: '/fleet-summary', icon: LayoutDashboard },
   { name: 'Fleet', href: '/fleet', icon: Bus },
   { name: 'Garages', href: '/garages', icon: Warehouse },
   { name: 'Reporting', href: '/reports', icon: BarChart3 },
@@ -49,9 +49,9 @@ export function Sidebar() {
   return (
     <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
       {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-b border-gray-800 px-4">
-        <div className="flex items-center gap-2">
-          <Bus className="h-8 w-8 text-blue-400" />
+      <div className="flex h-16 items-center border-b border-gray-800 px-4">
+        <div className="flex items-center gap-3">
+          <Bus className="h-8 w-8 text-blue-400 flex-shrink-0" />
           <div>
             <h1 className="text-xl font-bold">SpareHub</h1>
             <p className="text-xs text-gray-400">Fleet Manager</p>
