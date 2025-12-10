@@ -125,119 +125,6 @@ export default function MaintenanceSummaryPage() {
         ))}
       </div>
 
-      {/* Critical Components Alert */}
-      {criticalComponents.length > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
-              <AlertTriangle className="h-5 w-5" />
-              Critical Components Requiring Attention ({criticalComponents.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border bg-white">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vehicle #</TableHead>
-                    <TableHead>Component</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Est. Cost</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {criticalComponents.slice(0, 5).map(({ bus, component }, idx) => (
-                    <TableRow key={`${bus.id}-${component.type}-${idx}`}>
-                      <TableCell className="font-medium">{bus.vehicleNumber}</TableCell>
-                      <TableCell>
-                        {getComponentDisplayName(component.type)}
-                        {component.position !== 'N/A' && ` (${component.position})`}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={component.status === 'critical' ? 'destructive' : 'secondary'}>
-                          {component.status === 'critical' ? 'Critical' : 'Overdue'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>${component.estimatedCost.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Link href={`/fleet/${bus.id}`}>
-                          <Button variant="ghost" size="sm">View Bus</Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {criticalComponents.length > 5 && (
-              <div className="mt-4 text-center">
-                <Link href="/components">
-                  <Button variant="link" className="text-red-700">
-                    View all {criticalComponents.length} critical components
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Active Work Orders */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" />
-            Active Work Orders
-          </CardTitle>
-          <Link href="/maintenance">
-            <Button variant="outline" size="sm">View All</Button>
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {activeWorkOrders.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Work Order</TableHead>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Mechanic</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activeWorkOrders.map((wo) => {
-                    const bus = buses.find(b => b.id === wo.busId);
-                    return (
-                      <TableRow key={wo.id}>
-                        <TableCell className="font-medium">{wo.title}</TableCell>
-                        <TableCell>{bus?.vehicleNumber || 'N/A'}</TableCell>
-                        <TableCell>{getPriorityBadge(wo.priority)}</TableCell>
-                        <TableCell>{getStatusBadge(wo.status)}</TableCell>
-                        <TableCell>{wo.assignedMechanic || 'Unassigned'}</TableCell>
-                        <TableCell>
-                          <Link href="/maintenance">
-                            <Button variant="ghost" size="sm">Manage</Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Wrench className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p>No active work orders</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -290,28 +177,29 @@ export default function MaintenanceSummaryPage() {
           </CardContent>
         </Card>
 
-        <Card>
+<Card>
           <CardHeader>
-            <CardTitle>Component Health</CardTitle>
+            <CardTitle>Component Inventory</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-red-50 rounded-lg">
-                <div className="text-sm text-gray-600">Critical/Overdue</div>
-                <div className="text-2xl font-bold text-red-600">{criticalComponents.length}</div>
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="text-sm text-gray-600 mb-1">Out of Stock</div>
+                <div className="text-2xl font-bold text-red-600">5</div>
+                <div className="text-xs text-gray-500 mt-1">Components depleted</div>
               </div>
-              <div className="p-4 bg-yellow-50 rounded-lg">
-                <div className="text-sm text-gray-600">Warnings</div>
-                <div className="text-2xl font-bold text-yellow-600">
-                  {buses.reduce((count, bus) =>
-                    count + bus.components.filter(c => c.status === 'warning').length, 0
-                  )}
-                </div>
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="text-sm text-gray-600 mb-1">Low Stock</div>
+                <div className="text-2xl font-bold text-yellow-600">4</div>
+                <div className="text-xs text-gray-500 mt-1">Inventory running low</div>
               </div>
             </div>
-            <Link href="/components">
-              <Button className="w-full" variant="outline">View All Components</Button>
-            </Link>
+            <div className="pt-2">
+              <p className="text-xs text-gray-600 mb-3">Immediate restocking required to maintain operations</p>
+              <Link href="/components">
+                <Button className="w-full" variant="outline">Manage Inventory</Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
