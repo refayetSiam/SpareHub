@@ -17,11 +17,10 @@ import { toast } from 'sonner';
 import { handleComponentStatusChange, generateWorkOrdersForMaintenanceItems } from '@/lib/work-order-service';
 import Link from 'next/link';
 
-const BUS_TYPES: BusTypeEnum[] = ['Standard', 'Articulated', 'Double-Decker', 'Mini'];
+const BUS_TYPES: BusTypeEnum[] = ['Standard', 'Articulated', 'Mini'];
 const BUS_CAPACITIES: Record<BusTypeEnum, number> = {
   'Standard': 45,
   'Articulated': 60,
-  'Double-Decker': 80,
   'Mini': 25
 };
 
