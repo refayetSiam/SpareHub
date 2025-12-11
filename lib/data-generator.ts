@@ -96,13 +96,12 @@ function generateWorkOrder(bus: Bus, components: Component[]): WorkOrder {
 }
 
 function generateBus(index: number, garageId: string, prefix: string): Bus {
-  const busTypes: BusType[] = ['Standard', 'Articulated', 'Double-Decker', 'Mini'];
+  const busTypes: BusType[] = ['Standard', 'Articulated', 'Mini'];
   const type = busTypes[Math.floor(Math.random() * busTypes.length)];
 
   const capacityMap: Record<BusType, number> = {
-    'Standard': 40,
+    'Standard': 45,
     'Articulated': 60,
-    'Double-Decker': 80,
     'Mini': 25
   };
   const capacity = capacityMap[type];
