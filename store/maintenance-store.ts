@@ -5,16 +5,19 @@ import { LocalStorageService } from '@/lib/storage';
 interface MaintenanceState {
   workOrders: WorkOrder[];
   loading: boolean;
+  selectedGarage: string; // 'all', 'garage-north', or 'garage-south'
   loadWorkOrders: () => void;
   addWorkOrder: (workOrder: WorkOrder) => void;
   updateWorkOrder: (id: string, updates: Partial<WorkOrder>) => void;
   deleteWorkOrder: (id: string) => void;
   getWorkOrder: (id: string) => WorkOrder | undefined;
+  setSelectedGarage: (garageId: string) => void;
 }
 
 export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
   workOrders: [],
   loading: false,
+  selectedGarage: 'all',
 
   loadWorkOrders: () => {
     set({ loading: true });
@@ -45,5 +48,9 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => ({
 
   getWorkOrder: (id) => {
     return get().workOrders.find((wo) => wo.id === id);
+  },
+
+  setSelectedGarage: (garageId) => {
+    set({ selectedGarage: garageId });
   }
 }));

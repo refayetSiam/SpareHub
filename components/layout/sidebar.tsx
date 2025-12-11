@@ -21,8 +21,7 @@ import { Badge } from '@/components/ui/badge';
 // Operations role navigation
 const operationsNavigation = [
   { name: 'Fleet Summary', href: '/fleet-summary', icon: LayoutDashboard },
-  { name: 'Fleet', href: '/fleet', icon: Bus },
-  { name: 'Garages', href: '/garages', icon: Warehouse },
+  { name: 'Fleet Inventory', href: '/fleet', icon: Bus },
   { name: 'Reporting', href: '/reports', icon: BarChart3 },
 ];
 
@@ -31,6 +30,7 @@ const maintenanceNavigation = [
   { name: 'Maintenance Summary', href: '/maintenance-summary', icon: LayoutDashboard },
   { name: 'Work Orders', href: '/maintenance', icon: Wrench },
   { name: 'Components', href: '/components', icon: ClipboardList },
+  { name: 'Fleet Inventory', href: '/fleet', icon: Bus },
 ];
 
 export function Sidebar() {

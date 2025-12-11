@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { LocalStorageService } from '@/lib/storage';
 import { Bus as BusType } from '@/types';
 import { Wrench, Clock, CheckCircle2 } from 'lucide-react';
@@ -15,7 +13,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
   Cell,
@@ -68,33 +65,29 @@ export default function FleetSummaryPage() {
     },
   ];
 
-  // Generate weekly data for the chart (8 weeks) - use useMemo to prevent recalculation
+  // Generate weekly data for the chart with stacked bars by bus type
   const chartData = useMemo(() => {
-    const weeks = [];
-
-    // Simulate fleet data with bigger buses (higher capacity) replacing smaller ones
-    // Week 1-2 are past (greyed out), Week 3+ are current/future
+    // Simulated weekly data showing fleet composition changes
+    // Week 1-2 are past, Week 3+ are current/future
+    // Demonstrates replacing smaller buses with larger ones for better capacity
     const weeklyData = [
-      { week: 'Week 1', vehicles: 22, avgCapacity: 55 },  // Past - older fleet
-      { week: 'Week 2', vehicles: 20, avgCapacity: 58 },  // Past - some retirements
-      { week: 'Week 3', vehicles: 18, avgCapacity: 65 },  // Current - upgrading fleet
-      { week: 'Week 4', vehicles: 17, avgCapacity: 70 },  // Fewer buses but bigger
-      { week: 'Week 5', vehicles: 16, avgCapacity: 75 },  // More Double-Deckers
-      { week: 'Week 6', vehicles: 15, avgCapacity: 78 },  // Continued upgrades
-      { week: 'Week 7', vehicles: 14, avgCapacity: 82 },  // High-capacity fleet
-      { week: 'Week 8', vehicles: 14, avgCapacity: 85 },  // Optimized fleet
+      { week: 'Week 1', standard: 10, articulated: 6, mini: 6, isPast: true },   // Past - mixed fleet
+      { week: 'Week 2', standard: 9, articulated: 7, mini: 4, isPast: true },    // Past - reducing minis
+      { week: 'Week 3', standard: 8, articulated: 8, mini: 2, isPast: false },   // Current - more articulated
+      { week: 'Week 4', standard: 7, articulated: 9, mini: 1, isPast: false },   // Fewer but bigger
+      { week: 'Week 5', standard: 6, articulated: 10, mini: 0, isPast: false },  // No more minis
+      { week: 'Week 6', standard: 5, articulated: 11, mini: 0, isPast: false },  // More articulated
+      { week: 'Week 7', standard: 4, articulated: 12, mini: 0, isPast: false },  // High-capacity fleet
+      { week: 'Week 8', standard: 4, articulated: 12, mini: 0, isPast: false },  // Optimized fleet
     ];
 
-    weeklyData.forEach((data, index) => {
-      weeks.push({
-        week: data.week,
-        vehicles: data.vehicles,
-        capacity: data.vehicles * data.avgCapacity,
-        isPast: index < 2, // Week 1 and 2 are in the past
-      });
-    });
-
-    return weeks;
+    // Calculate capacity for each week
+    // Standard: 45 passengers, Articulated: 60 passengers, Mini: 25 passengers
+    return weeklyData.map(week => ({
+      ...week,
+      totalVehicles: week.standard + week.articulated + week.mini,
+      capacity: (week.standard * 45) + (week.articulated * 60) + (week.mini * 25),
+    }));
   }, []);
 
   // Capacity limit line at 1000
@@ -155,9 +148,6 @@ export default function FleetSummaryPage() {
                 </span>
               </div>
             </div>
-            <Link href="/maintenance">
-              <Button className="w-full" size="sm">View All Work Orders</Button>
-            </Link>
           </CardContent>
         </Card>
 
@@ -285,12 +275,13 @@ export default function FleetSummaryPage() {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}
                   formatter={(value: number, name: string) => {
-                    if (name === 'vehicles') return [value, 'Vehicles'];
+                    if (name === 'standard') return [value, 'Standard (45 cap)'];
+                    if (name === 'articulated') return [value, 'Articulated (60 cap)'];
+                    if (name === 'mini') return [value, 'Mini (25 cap)'];
                     if (name === 'capacity') return [value.toLocaleString(), 'Total Capacity'];
                     return [value, name];
                   }}
                 />
-                <Legend />
                 {/* Capacity Limit Reference Line */}
                 <ReferenceLine
                   yAxisId="right"
@@ -299,67 +290,89 @@ export default function FleetSummaryPage() {
                   strokeDasharray="5 5"
                   strokeWidth={2}
                   label={{
-                    value: `Capacity Limit (${CAPACITY_LIMIT})`,
+                    value: '1000',
                     position: 'right',
                     fill: '#ef4444',
                     fontSize: 11,
                   }}
                 />
+                {/* Stacked Bars by Bus Type - grey for past, lighter colors for active */}
                 <Bar
                   yAxisId="left"
-                  dataKey="vehicles"
-                  name="vehicles"
-                  radius={[4, 4, 0, 0]}
-                  barSize={40}
+                  dataKey="mini"
+                  name="mini"
+                  stackId="vehicles"
+                  radius={[0, 0, 0, 0]}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.isPast ? '#9ca3af' : '#3b82f6'}
-                    />
+                    <Cell key={`mini-${index}`} fill={entry.isPast ? '#9ca3af' : '#fcd34d'} />
+                  ))}
+                </Bar>
+                <Bar
+                  yAxisId="left"
+                  dataKey="standard"
+                  name="standard"
+                  stackId="vehicles"
+                  radius={[0, 0, 0, 0]}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`standard-${index}`} fill={entry.isPast ? '#6b7280' : '#93c5fd'} />
+                  ))}
+                </Bar>
+                <Bar
+                  yAxisId="left"
+                  dataKey="articulated"
+                  name="articulated"
+                  stackId="vehicles"
+                  radius={[4, 4, 0, 0]}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`articulated-${index}`} fill={entry.isPast ? '#4b5563' : '#c4b5fd'} />
                   ))}
                 </Bar>
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="capacity"
-                  stroke="#10b981"
+                  stroke="#6ee7b7"
                   strokeWidth={3}
                   name="capacity"
-                  dot={(props) => {
-                    const { cx, cy, payload } = props;
-                    return (
-                      <circle
-                        key={`dot-${payload.week}`}
-                        cx={cx}
-                        cy={cy}
-                        r={4}
-                        fill={payload.isPast ? '#9ca3af' : '#10b981'}
-                        strokeWidth={2}
-                      />
-                    );
-                  }}
-                  activeDot={{ r: 6, fill: '#10b981' }}
+                  dot={({ cx, cy, payload }) => (
+                    <circle
+                      key={`dot-${payload.week}`}
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill={payload.isPast ? '#9ca3af' : '#6ee7b7'}
+                      stroke={payload.isPast ? '#9ca3af' : '#6ee7b7'}
+                      strokeWidth={2}
+                    />
+                  )}
+                  activeDot={{ r: 6, fill: '#6ee7b7' }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-3 flex justify-center gap-6 text-sm text-gray-600">
+          <div className="mt-3 flex justify-center gap-4 text-sm text-gray-600 flex-wrap">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded" />
-              <span>Vehicles</span>
+              <div className="w-4 h-4 bg-amber-200 rounded" />
+              <span>Mini (25)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-400 rounded" />
-              <span>Past Data</span>
+              <div className="w-4 h-4 bg-blue-200 rounded" />
+              <span>Standard (45)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-green-500 rounded" />
+              <div className="w-4 h-4 bg-violet-200 rounded" />
+              <span>Articulated (60)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-emerald-300 rounded" />
               <span>Capacity</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-0.5 bg-red-500 border-dashed border-t-2 border-red-500" />
-              <span>Capacity Limit</span>
+              <div className="w-4 h-0.5 border-dashed border-t-2 border-red-500" />
+              <span>Limit</span>
             </div>
           </div>
         </CardContent>

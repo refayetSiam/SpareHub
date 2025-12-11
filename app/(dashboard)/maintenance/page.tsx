@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,16 +11,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Wrench, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Wrench, AlertTriangle, CheckCircle2, XCircle, Clock, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { LocalStorageService } from '@/lib/storage';
 import { WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@/types';
-import { completeWorkOrder, generateAllWorkOrders } from '@/lib/work-order-service';
+import { completeWorkOrder } from '@/lib/work-order-service';
 import { COMPONENT_MASTERS, MECHANICS } from '@/lib/constants';
 import { toast } from 'sonner';
+import { useMaintenanceStore } from '@/store/maintenance-store';
 
 const getComponentDisplayName = (compType: string) => {
   const master = COMPONENT_MASTERS.find(m => m.type === compType);
   return master?.displayName || compType;
+};
+
+type SortField = 'title' | 'vehicle' | 'priority' | 'status' | 'dueDate' | 'estimatedCost' | 'completedDate';
+type SortDirection = 'asc' | 'desc';
+
+const priorityOrder: Record<WorkOrderPriority, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1
+};
+
+const statusOrder: Record<WorkOrderStatus, number> = {
+  in_progress: 3,
+  pending: 2,
+  cancelled: 1,
+  completed: 0
 };
 
 export default function MaintenancePage() {
@@ -34,6 +52,9 @@ export default function MaintenancePage() {
   const [editForm, setEditForm] = useState<Partial<WorkOrder>>({});
   const [actualCost, setActualCost] = useState<number>(0);
   const [completionNotes, setCompletionNotes] = useState<string>('');
+  const [sortField, setSortField] = useState<SortField>('dueDate');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const { selectedGarage } = useMaintenanceStore();
 
   useEffect(() => {
     loadWorkOrders();
@@ -45,8 +66,14 @@ export default function MaintenancePage() {
     setFilteredWorkOrders(allWorkOrders);
   };
 
+  // Filter work orders by garage first
+  const garageFilteredWorkOrders = useMemo(() => {
+    if (selectedGarage === 'all') return workOrders;
+    return workOrders.filter(wo => wo.garageId === selectedGarage);
+  }, [workOrders, selectedGarage]);
+
   useEffect(() => {
-    let filtered = workOrders;
+    let filtered = garageFilteredWorkOrders;
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(wo => wo.status === statusFilter);
@@ -57,13 +84,7 @@ export default function MaintenancePage() {
     }
 
     setFilteredWorkOrders(filtered);
-  }, [statusFilter, priorityFilter, workOrders]);
-
-  const handleGenerateWorkOrders = () => {
-    const count = generateAllWorkOrders();
-    loadWorkOrders();
-    toast.success(`Generated ${count} new work orders`);
-  };
+  }, [statusFilter, priorityFilter, garageFilteredWorkOrders]);
 
   const handleCompleteWorkOrder = async () => {
     if (!completingWorkOrder) return;
@@ -119,7 +140,7 @@ export default function MaintenancePage() {
 
   const getStatusBadge = (status: WorkOrderStatus) => {
     const variants: Record<WorkOrderStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string; icon: any }> = {
-      pending: { variant: 'outline', label: 'Pending', icon: Clock },
+      pending: { variant: 'outline', label: 'Backlog', icon: Clock },
       in_progress: { variant: 'secondary', label: 'In Progress', icon: Wrench },
       completed: { variant: 'default', label: 'Completed', icon: CheckCircle2 },
       cancelled: { variant: 'destructive', label: 'Cancelled', icon: XCircle }
@@ -144,31 +165,87 @@ export default function MaintenancePage() {
     return <Badge className={colors[priority]}>{priority.toUpperCase()}</Badge>;
   };
 
-  const activeWorkOrders = filteredWorkOrders.filter(wo =>
-    wo.status === 'pending' || wo.status === 'in_progress' || wo.status === 'cancelled'
-  );
-  const completedWorkOrders = filteredWorkOrders.filter(wo => wo.status === 'completed');
-
-  const stats = {
-    total: workOrders.length,
-    pending: workOrders.filter(wo => wo.status === 'pending').length,
-    inProgress: workOrders.filter(wo => wo.status === 'in_progress').length,
-    completed: workOrders.filter(wo => wo.status === 'completed').length,
-    critical: workOrders.filter(wo => wo.priority === 'critical' && wo.status !== 'completed').length,
-    active: workOrders.filter(wo => wo.status === 'pending' || wo.status === 'in_progress' || wo.status === 'cancelled').length
+  // Sort function
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-4 w-4 ml-1" />
+      : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const sortWorkOrders = (orders: WorkOrder[]) => {
+    return [...orders].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case 'vehicle':
+          const busA = LocalStorageService.getBus(a.busId)?.vehicleNumber || '';
+          const busB = LocalStorageService.getBus(b.busId)?.vehicleNumber || '';
+          comparison = busA.localeCompare(busB);
+          break;
+        case 'priority':
+          comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+          break;
+        case 'status':
+          comparison = statusOrder[b.status] - statusOrder[a.status];
+          break;
+        case 'dueDate':
+          const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+          const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+          comparison = dateA - dateB;
+          break;
+        case 'estimatedCost':
+          comparison = a.estimatedCost - b.estimatedCost;
+          break;
+        case 'completedDate':
+          const compDateA = a.completedDate ? new Date(a.completedDate).getTime() : 0;
+          const compDateB = b.completedDate ? new Date(b.completedDate).getTime() : 0;
+          comparison = compDateB - compDateA; // Most recent first by default
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  const activeWorkOrders = useMemo(() => {
+    const filtered = filteredWorkOrders.filter(wo =>
+      wo.status === 'pending' || wo.status === 'in_progress' || wo.status === 'cancelled'
+    );
+    return sortWorkOrders(filtered);
+  }, [filteredWorkOrders, sortField, sortDirection]);
+
+  const completedWorkOrders = useMemo(() => {
+    const filtered = filteredWorkOrders.filter(wo => wo.status === 'completed');
+    return sortWorkOrders(filtered);
+  }, [filteredWorkOrders, sortField, sortDirection]);
+
+  const stats = useMemo(() => ({
+    total: garageFilteredWorkOrders.length,
+    pending: garageFilteredWorkOrders.filter(wo => wo.status === 'pending').length,
+    inProgress: garageFilteredWorkOrders.filter(wo => wo.status === 'in_progress').length,
+    completed: garageFilteredWorkOrders.filter(wo => wo.status === 'completed').length,
+    critical: garageFilteredWorkOrders.filter(wo => wo.priority === 'critical' && wo.status !== 'completed').length,
+    active: garageFilteredWorkOrders.filter(wo => wo.status === 'pending' || wo.status === 'in_progress' || wo.status === 'cancelled').length
+  }), [garageFilteredWorkOrders]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Maintenance & Work Orders</h1>
-          <p className="text-gray-500">Manage maintenance schedules and work orders</p>
-        </div>
-        <Button onClick={handleGenerateWorkOrders}>
-          <Wrench className="h-4 w-4 mr-2" />
-          Generate Work Orders
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Maintenance & Work Orders</h1>
+        <p className="text-gray-500">Manage maintenance schedules and work orders</p>
       </div>
 
       {/* Stats Cards */}
@@ -183,7 +260,7 @@ export default function MaintenancePage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Backlog</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600">{stats.pending}</div>
@@ -231,7 +308,7 @@ export default function MaintenancePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="pending">Backlog</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -263,12 +340,54 @@ export default function MaintenancePage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Vehicle</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Est. Cost</TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('title')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Title {getSortIcon('title')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('vehicle')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Vehicle {getSortIcon('vehicle')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('priority')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Priority {getSortIcon('priority')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('status')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Status {getSortIcon('status')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('dueDate')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Due Date {getSortIcon('dueDate')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('estimatedCost')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Est. Cost {getSortIcon('estimatedCost')}
+                        </button>
+                      </TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -282,6 +401,7 @@ export default function MaintenancePage() {
                     ) : (
                       activeWorkOrders.map((wo) => {
                         const bus = LocalStorageService.getBus(wo.busId);
+                        const isOverdue = wo.dueDate && new Date(wo.dueDate) < new Date();
                         return (
                           <TableRow key={wo.id}>
                             <TableCell className="font-mono text-xs">{wo.id.slice(0, 8)}</TableCell>
@@ -303,7 +423,14 @@ export default function MaintenancePage() {
                             </TableCell>
                             <TableCell>{getPriorityBadge(wo.priority)}</TableCell>
                             <TableCell>{getStatusBadge(wo.status)}</TableCell>
-                            <TableCell>{new Date(wo.createdDate).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              {wo.dueDate ? (
+                                <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>
+                                  {new Date(wo.dueDate).toLocaleDateString()}
+                                  {isOverdue && <span className="ml-1 text-xs">(Overdue)</span>}
+                                </span>
+                              ) : '-'}
+                            </TableCell>
                             <TableCell>${wo.estimatedCost.toLocaleString()}</TableCell>
                             <TableCell>
                               <div className="flex gap-2">
@@ -345,12 +472,47 @@ export default function MaintenancePage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Vehicle</TableHead>
-                      <TableHead>Priority</TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('title')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Title {getSortIcon('title')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('vehicle')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Vehicle {getSortIcon('vehicle')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('priority')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Priority {getSortIcon('priority')}
+                        </button>
+                      </TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Actual Cost</TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('completedDate')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Completed {getSortIcon('completedDate')}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('estimatedCost')}
+                          className="flex items-center hover:text-gray-900 font-medium"
+                        >
+                          Actual Cost {getSortIcon('estimatedCost')}
+                        </button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -405,36 +567,116 @@ export default function MaintenancePage() {
           setIsEditing(false);
         }
       }}>
-        <SheetContent className="w-[1000px] sm:w-[1200px] max-w-[90vw] overflow-y-auto">
-          <SheetHeader className="pb-6">
-            <SheetTitle className="text-2xl">Work Order Details</SheetTitle>
-            <SheetDescription className="font-mono text-xs text-gray-400">
-              {selectedWorkOrder?.id}
-            </SheetDescription>
+        <SheetContent className="!w-[800px] sm:!w-[900px] !max-w-[95vw] overflow-y-auto px-10">
+          <SheetHeader className="pb-8 border-b mb-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <SheetTitle className="text-2xl font-bold mb-2">Work Order Details</SheetTitle>
+                <SheetDescription className="font-mono text-sm text-gray-400">
+                  ID: {selectedWorkOrder?.id}
+                </SheetDescription>
+              </div>
+              {selectedWorkOrder && (
+                <div className="flex gap-3">
+                  {getStatusBadge(selectedWorkOrder.status)}
+                  {getPriorityBadge(selectedWorkOrder.priority)}
+                </div>
+              )}
+            </div>
           </SheetHeader>
 
           {selectedWorkOrder && (
-            <div className="space-y-8 py-4">
-              {/* Header Info */}
-              <div className="space-y-6">
-                <div className="pb-4 border-b">
-                  <label className="text-sm font-medium text-gray-500 block mb-2">Title</label>
-                  <p className="text-lg font-semibold">{selectedWorkOrder.title}</p>
-                </div>
+            <div className="space-y-10">
+              {/* Title Section */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">{selectedWorkOrder.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{selectedWorkOrder.description}</p>
+              </div>
 
-                <div className="grid grid-cols-3 gap-6">
+              {/* Key Details Grid */}
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-6">
                   <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">Vehicle</label>
-                    <Link href={`/fleet/${selectedWorkOrder.busId}`} className="block text-blue-600 hover:underline text-base font-medium">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Vehicle</label>
+                    <Link href={`/fleet/${selectedWorkOrder.busId}`} className="text-lg text-blue-600 hover:underline font-medium">
                       {LocalStorageService.getBus(selectedWorkOrder.busId)?.vehicleNumber || 'Unknown'}
                     </Link>
                   </div>
+
                   <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">Status</label>
-                    <div>{getStatusBadge(selectedWorkOrder.status)}</div>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Assigned Mechanic</label>
+                    {isEditing && selectedWorkOrder.status !== 'completed' ? (
+                      <Select
+                        value={editForm.assignedMechanic || 'unassigned'}
+                        onValueChange={(value) => setEditForm({ ...editForm, assignedMechanic: value === 'unassigned' ? '' : value })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select mechanic" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {MECHANICS.map(mech => (
+                            <SelectItem key={mech.id} value={mech.name}>{mech.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-lg font-medium">{selectedWorkOrder.assignedMechanic || 'Unassigned'}</p>
+                    )}
                   </div>
+
                   <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">Priority</label>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Created Date</label>
+                    <p className="text-lg">{new Date(selectedWorkOrder.createdDate).toLocaleDateString()}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Due Date</label>
+                    {selectedWorkOrder.dueDate ? (
+                      <p className={`text-lg font-medium ${new Date(selectedWorkOrder.dueDate) < new Date() && selectedWorkOrder.status !== 'completed' ? 'text-red-600' : ''}`}>
+                        {new Date(selectedWorkOrder.dueDate).toLocaleDateString()}
+                        {new Date(selectedWorkOrder.dueDate) < new Date() && selectedWorkOrder.status !== 'completed' && (
+                          <span className="ml-2 text-sm">(Overdue)</span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-lg text-gray-400">Not set</p>
+                    )}
+                  </div>
+
+                  {selectedWorkOrder.completedDate && (
+                    <div>
+                      <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Completed Date</label>
+                      <p className="text-lg text-green-600 font-medium">{new Date(selectedWorkOrder.completedDate).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6">
+                  {selectedWorkOrder.status !== 'completed' && (
+                    <div>
+                      <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Status</label>
+                      {isEditing ? (
+                        <Select
+                          value={editForm.status || selectedWorkOrder.status}
+                          onValueChange={(value) => setEditForm({ ...editForm, status: value as any })}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Backlog</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-lg capitalize">{selectedWorkOrder.status === 'pending' ? 'Backlog' : selectedWorkOrder.status.replace('_', ' ')}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Priority</label>
                     {isEditing && selectedWorkOrder.status !== 'completed' ? (
                       <Select
                         value={editForm.priority || selectedWorkOrder.priority}
@@ -451,183 +693,119 @@ export default function MaintenancePage() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div>{getPriorityBadge(selectedWorkOrder.priority)}</div>
+                      <p className="text-lg capitalize">{selectedWorkOrder.priority}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Scheduled Date</label>
+                    {isEditing && selectedWorkOrder.status !== 'completed' ? (
+                      <Input
+                        type="date"
+                        value={editForm.scheduledDate ? new Date(editForm.scheduledDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
+                      />
+                    ) : (
+                      <p className="text-lg">
+                        {selectedWorkOrder.scheduledDate ? new Date(selectedWorkOrder.scheduledDate).toLocaleDateString() : 'Not scheduled'}
+                      </p>
                     )}
                   </div>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-3 gap-6">
+              {/* Components Section */}
+              <div className="border-t pt-8">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-4">Components</label>
+                <div className="flex flex-wrap gap-3">
+                  {selectedWorkOrder.components.length > 0 ? (
+                    selectedWorkOrder.components.map((comp) => {
+                      const busComp = LocalStorageService.getBus(selectedWorkOrder.busId)?.components.find(c => c.type === comp);
+                      return (
+                        <div key={comp} className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium border border-blue-200">
+                          {getComponentDisplayName(comp)} {busComp && busComp.position !== 'N/A' && `(${busComp.position})`}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-gray-500">Additional maintenance item</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cost Section */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <div className="grid grid-cols-2 gap-8">
                   <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">Created Date</label>
-                    <p className="text-base">{new Date(selectedWorkOrder.createdDate).toLocaleDateString()}</p>
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Estimated Cost</label>
+                    <p className="text-3xl font-bold text-gray-900">${selectedWorkOrder.estimatedCost.toLocaleString()}</p>
                   </div>
-                  {selectedWorkOrder.status !== 'completed' && (
+                  {selectedWorkOrder.actualCost && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500 block mb-2">Change Status</label>
-                      {isEditing ? (
-                        <Select
-                          value={editForm.status || selectedWorkOrder.status}
-                          onValueChange={(value) => setEditForm({ ...editForm, status: value as any })}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-base capitalize">{selectedWorkOrder.status.replace('_', ' ')}</p>
-                      )}
+                      <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Actual Cost</label>
+                      <p className="text-3xl font-bold text-green-600">${selectedWorkOrder.actualCost.toLocaleString()}</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Description */}
-              <div className="pb-6 border-b">
-                <label className="text-sm font-medium text-gray-500 block mb-3">Description</label>
-                <p className="text-base leading-relaxed">{selectedWorkOrder.description}</p>
-              </div>
-
-              {/* Components */}
-              <div className="pb-6 border-b">
-                <label className="text-sm font-medium text-gray-500 block mb-3">Components</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {selectedWorkOrder.components.length > 0 ? (
-                    selectedWorkOrder.components.map((comp) => {
-                      const busComp = LocalStorageService.getBus(selectedWorkOrder.busId)?.components.find(c => c.type === comp);
-                      return (
-                        <div key={comp} className="text-base bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
-                          • {getComponentDisplayName(comp)} {busComp && busComp.position !== 'N/A' && `(${busComp.position})`}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-base text-gray-500 col-span-2">Additional maintenance item</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Assigned Mechanic */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-sm font-medium text-gray-500 block mb-3">Assigned Mechanic</label>
-                  {isEditing && selectedWorkOrder.status !== 'completed' ? (
-                    <Select
-                      value={editForm.assignedMechanic || 'unassigned'}
-                      onValueChange={(value) => setEditForm({ ...editForm, assignedMechanic: value === 'unassigned' ? '' : value })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select mechanic" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {MECHANICS.map(mech => (
-                          <SelectItem key={mech.id} value={mech.name}>{mech.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-base">{selectedWorkOrder.assignedMechanic || 'Unassigned'}</p>
-                  )}
-                </div>
-
-                {/* Scheduled Date */}
-                <div>
-                  <label className="text-sm font-medium text-gray-500 block mb-3">Scheduled Date</label>
-                  {isEditing && selectedWorkOrder.status !== 'completed' ? (
-                    <Input
-                      type="date"
-                      value={editForm.scheduledDate ? new Date(editForm.scheduledDate).toISOString().split('T')[0] : ''}
-                      onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
-                    />
-                  ) : (
-                  <p className="text-sm mt-1">
-                    {selectedWorkOrder.scheduledDate ? new Date(selectedWorkOrder.scheduledDate).toLocaleDateString() : 'Not scheduled'}
-                  </p>
-                )}
-              </div>
-
-              {/* Costs */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Estimated Cost</label>
-                  <p className="text-lg font-bold">${selectedWorkOrder.estimatedCost.toLocaleString()}</p>
-                </div>
-                {selectedWorkOrder.actualCost && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Actual Cost</label>
-                    <p className="text-lg font-bold text-green-600">${selectedWorkOrder.actualCost.toLocaleString()}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Notes</label>
+              {/* Notes Section */}
+              <div className="border-t pt-8">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-3">Notes</label>
                 {isEditing && selectedWorkOrder.status !== 'completed' ? (
                   <Input
                     value={editForm.notes || ''}
                     onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                     placeholder="Add notes"
-                    className="mt-1"
+                    className="w-full"
                   />
                 ) : (
-                  <p className="text-sm mt-1">{selectedWorkOrder.notes || 'No notes'}</p>
+                  <p className="text-gray-600">{selectedWorkOrder.notes || 'No notes added'}</p>
                 )}
               </div>
-
-              {selectedWorkOrder.completedDate && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Completed Date</label>
-                  <p className="text-sm mt-1">{new Date(selectedWorkOrder.completedDate).toLocaleDateString()}</p>
-                </div>
-              )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4 border-t">
-                {selectedWorkOrder.status !== 'completed' && (
-                  <>
-                    {!isEditing ? (
-                      <>
-                        <Button onClick={() => setIsEditing(true)} variant="outline" className="flex-1">
-                          Edit
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setCompletingWorkOrder(selectedWorkOrder);
-                            setActualCost(selectedWorkOrder.estimatedCost);
-                            setSelectedWorkOrder(null);
-                          }}
-                          className="flex-1"
-                        >
-                          Complete
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            handleCancelWorkOrder(selectedWorkOrder);
-                            setSelectedWorkOrder(null);
-                          }}
-                          variant="ghost"
-                        >
-                          Cancel WO
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button onClick={handleEditWorkOrder} className="flex-1">
-                          Save Changes
-                        </Button>
-                        <Button onClick={() => setIsEditing(false)} variant="outline" className="flex-1">
-                          Cancel Edit
-                        </Button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
+              {selectedWorkOrder.status !== 'completed' && (
+                <div className="border-t pt-8 flex gap-4">
+                  {!isEditing ? (
+                    <>
+                      <Button onClick={() => setIsEditing(true)} variant="outline" size="lg" className="flex-1">
+                        Edit Work Order
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setCompletingWorkOrder(selectedWorkOrder);
+                          setActualCost(selectedWorkOrder.estimatedCost);
+                          setSelectedWorkOrder(null);
+                        }}
+                        size="lg"
+                        className="flex-1"
+                      >
+                        Mark Complete
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          handleCancelWorkOrder(selectedWorkOrder);
+                          setSelectedWorkOrder(null);
+                        }}
+                        variant="ghost"
+                        size="lg"
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button onClick={handleEditWorkOrder} size="lg" className="flex-1">
+                        Save Changes
+                      </Button>
+                      <Button onClick={() => setIsEditing(false)} variant="outline" size="lg" className="flex-1">
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </SheetContent>

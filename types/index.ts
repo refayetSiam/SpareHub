@@ -26,7 +26,7 @@ export interface Garage {
 
 // Bus types
 export type BusStatus = 'active' | 'decommissioned' | 'maintenance';
-export type BusType = 'Standard' | 'Articulated' | 'Double-Decker' | 'Mini';
+export type BusType = 'Standard' | 'Articulated' | 'Mini';
 
 export interface Bus {
   id: string; // e.g., "bus-001"
@@ -108,6 +108,7 @@ export interface WorkOrder {
   status: WorkOrderStatus;
   assignedMechanic?: string;
   createdDate: string;
+  dueDate?: string; // Due date based on component renewal date
   scheduledDate?: string;
   completedDate?: string;
   estimatedCost: number;

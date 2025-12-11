@@ -1,11 +1,18 @@
 'use client';
 
-import { Bell, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Search, Warehouse } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useUserStore } from '@/store/user-store';
+import { useMaintenanceStore } from '@/store/maintenance-store';
+import { GARAGES } from '@/lib/constants';
 
 export function Header() {
+  const { currentUser } = useUserStore();
+  const { selectedGarage, setSelectedGarage } = useMaintenanceStore();
+
+  const isMaintenance = currentUser?.role === 'maintenance';
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
       <div className="flex items-center gap-4 flex-1">
@@ -18,14 +25,24 @@ export function Header() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-            3
-          </Badge>
-        </Button>
-      </div>
+      {isMaintenance && (
+        <div className="flex items-center gap-2">
+          <Warehouse className="h-4 w-4 text-gray-500" />
+          <Select value={selectedGarage} onValueChange={setSelectedGarage}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select Garage" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Garages</SelectItem>
+              {GARAGES.map(garage => (
+                <SelectItem key={garage.id} value={garage.id}>
+                  {garage.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </header>
   );
 }
